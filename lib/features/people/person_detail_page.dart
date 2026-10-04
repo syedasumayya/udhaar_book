@@ -1,0 +1,166 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../core/date_format.dart';
+import '../../core/money.dart';
+import '../../data/models/loan.dart';
+import '../../domain/balance.dart';
+import '../../providers.dart';
+import '../loans/add_loan_page.dart';
+
+class PersonDetailPage extends ConsumerWidget {
+  const PersonDetailPage({super.key, required this.personId});
+
+  final String personId;
+
+  Future<void> _confirmDelete(BuildContext context, WidgetRef ref) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Delete this person?'),
+        content: const Text(
+          'All their loans and repayments will be deleted too. This cannot be undone.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+    if (ok != true || !context.mounted) return;
+
+    final notifier = ref.read(appDataProvider.notifier);
+    Navigator.pop(context);
+    await notifier.deletePerson(personId);
+  }
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final data = ref.watch(appDataProvider).value;
+    final person = data?.personById(personId);
+    if (data == null || person == null) {
+      return const Scaffold(body: SizedBox.shrink());
+    }
+
+    final scheme = Theme.of(context).colorScheme;
+    final loans = data.loansFor(personId);
+    final net = data.totalsFor(personId).net;
+
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(person.name),
+        actions: [
+          IconButton(
+            tooltip: 'Delete person',
+            icon: const Icon(Icons.delete_outline),
+            onPressed: () => _confirmDelete(context, ref),
+          ),
+        ],
+      ),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: () => Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => AddLoanPage(personId: personId)),
+        ),
+        icon: const Icon(Icons.add),
+        label: const Text('Add loan'),
+      ),
+      body: ListView(
+        padding: const EdgeInsets.only(bottom: 88),
+        children: [
+          Card(
+            margin: const EdgeInsets.all(16),
+            child: Padding(
+              padding: const EdgeInsets.all(20),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    net == 0
+                        ? 'All settled'
+                        : net > 0
+                        ? '${person.name} owes you'
+                        : 'You owe ${person.name}',
+                    style: Theme.of(context).textTheme.labelLarge,
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    Money.format(net.abs()),
+                    style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                      color: net >= 0 ? scheme.primary : scheme.error,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  if (person.phone != null) ...[
+                    const SizedBox(height: 8),
+                    Text(person.phone!),
+                  ],
+                ],
+              ),
+            ),
+          ),
+          if (loans.isEmpty)
+            const Padding(
+              padding: EdgeInsets.all(32),
+              child: Center(child: Text('No loans yet. Tap "Add loan".')),
+            ),
+          for (final loan in loans)
+            _LoanTile(loan: loan, repayments: data.repayments),
+        ],
+      ),
+    );
+  }
+}
+
+class _LoanTile extends StatelessWidget {
+  const _LoanTile({required this.loan, required this.repayments});
+
+  final Loan loan;
+  final List repayments;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final lent = loan.direction == LoanDirection.lent;
+    final left = Balance.remaining(loan, repayments.cast());
+    final overdue = Balance.isOverdue(loan, repayments.cast());
+
+    final subtitle = StringBuffer(lent ? 'You gave' : 'You took')
+      ..write(' • ${formatDate(loan.date)}');
+    if (loan.dueDate != null) {
+      subtitle.write(' • due ${formatDate(loan.dueDate!)}');
+    }
+
+    return ListTile(
+      leading: CircleAvatar(
+        child: Icon(lent ? Icons.arrow_upward : Icons.arrow_downward),
+      ),
+      title: Text(Money.format(loan.principal)),
+      subtitle: Text(subtitle.toString()),
+      trailing: left == 0
+          ? const Chip(label: Text('Paid'))
+          : Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                Text(
+                  Money.format(left),
+                  style: const TextStyle(fontWeight: FontWeight.w600),
+                ),
+                Text(
+                  overdue ? 'Overdue' : 'left',
+                  style: TextStyle(
+                    color: overdue ? scheme.error : scheme.outline,
+                    fontSize: 12,
+                  ),
+                ),
+              ],
+            ),
+    );
+  }
+}
