@@ -1,3 +1,5 @@
+import '../../data/models/repayment.dart';
+import '../loans/loan_detail_page.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/date_format.dart';
@@ -121,14 +123,14 @@ class _LoanTile extends StatelessWidget {
   const _LoanTile({required this.loan, required this.repayments});
 
   final Loan loan;
-  final List repayments;
+  final List<Repayment> repayments;
 
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     final lent = loan.direction == LoanDirection.lent;
-    final left = Balance.remaining(loan, repayments.cast());
-    final overdue = Balance.isOverdue(loan, repayments.cast());
+    final left = Balance.remaining(loan, repayments);
+    final overdue = Balance.isOverdue(loan, repayments);
 
     final subtitle = StringBuffer(lent ? 'You gave' : 'You took')
       ..write(' • ${formatDate(loan.date)}');
@@ -137,6 +139,10 @@ class _LoanTile extends StatelessWidget {
     }
 
     return ListTile(
+      onTap: () => Navigator.push(
+        context,
+        MaterialPageRoute(builder: (_) => LoanDetailPage(loanId: loan.id)),
+      ),
       leading: CircleAvatar(
         child: Icon(lent ? Icons.arrow_upward : Icons.arrow_downward),
       ),

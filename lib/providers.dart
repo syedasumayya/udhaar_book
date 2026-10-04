@@ -37,6 +37,17 @@ class AppData {
     }
     return null;
   }
+
+  Loan? loanById(String id) {
+    for (final l in loans) {
+      if (l.id == id) return l;
+    }
+    return null;
+  }
+
+  List<Repayment> repaymentsFor(String loanId) =>
+      repayments.where((r) => r.loanId == loanId).toList()
+        ..sort((a, b) => b.date.compareTo(a.date));
 }
 
 class AppDataNotifier extends AsyncNotifier<AppData> {
@@ -93,6 +104,40 @@ class AppDataNotifier extends AsyncNotifier<AppData> {
       createdAt: DateTime.now(),
     );
     await _repo.saveLoan(loan);
+    await _refresh();
+  }
+
+  Future<void> addRepayment({
+    required String loanId,
+    required int amount,
+    required DateTime date,
+    String note = '',
+  }) async {
+    final data = state.requireValue;
+    final loan = data.loanById(loanId);
+    if (loan == null) throw ArgumentError('Loan not found');
+    if (amount <= 0 || amount > Balance.remaining(loan, data.repayments)) {
+      throw ArgumentError('Invalid repayment amount');
+    }
+
+    final repayment = Repayment(
+      id: _uuid.v4(),
+      loanId: loanId,
+      amount: amount,
+      date: date,
+      note: note.trim(),
+    );
+    await _repo.saveRepayment(repayment);
+    await _refresh();
+  }
+
+  Future<void> deleteRepayment(String id) async {
+    await _repo.deleteRepayment(id);
+    await _refresh();
+  }
+
+  Future<void> deleteLoan(String id) async {
+    await _repo.deleteLoan(id);
     await _refresh();
   }
 }
