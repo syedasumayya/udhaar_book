@@ -1,3 +1,4 @@
+import 'add_loan_page.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/date_format.dart';
@@ -121,6 +122,17 @@ class LoanDetailPage extends ConsumerWidget {
       appBar: AppBar(
         title: Text(person?.name ?? 'Loan'),
         actions: [
+          IconButton(
+            tooltip: 'Edit loan',
+            icon: const Icon(Icons.edit_outlined),
+            onPressed: () => Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) =>
+                    AddLoanPage(personId: loan.personId, existing: loan),
+              ),
+            ),
+          ),
           IconButton(
             tooltip: 'Delete loan',
             icon: const Icon(Icons.delete_outline),

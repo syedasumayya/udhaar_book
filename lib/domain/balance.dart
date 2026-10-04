@@ -27,7 +27,9 @@ class Balance {
   }) {
     if (loan.dueDate == null) return false;
     if (remaining(loan, repayments) == 0) return false;
-    return loan.dueDate!.isBefore(now ?? DateTime.now());
+    final n = now ?? DateTime.now();
+    final today = DateTime(n.year, n.month, n.day);
+    return loan.dueDate!.isBefore(today);
   }
 
   static Totals totals(Iterable<Loan> loans, Iterable<Repayment> repayments) {

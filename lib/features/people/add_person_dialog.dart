@@ -1,29 +1,55 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../data/models/person.dart';
 import '../../providers.dart';
 
-Future<void> showAddPersonDialog(BuildContext context, WidgetRef ref) async {
+/// Pass [existing] to edit a person, leave it out to add a new one.
+Future<void> showPersonDialog(
+  BuildContext context,
+  WidgetRef ref, {
+  Person? existing,
+}) async {
   final result = await showDialog<({String name, String? phone})>(
     context: context,
-    builder: (_) => const _AddPersonDialog(),
+    builder: (_) => _PersonDialog(existing: existing),
   );
   if (result == null) return;
-  await ref
-      .read(appDataProvider.notifier)
-      .addPerson(name: result.name, phone: result.phone);
+
+  final notifier = ref.read(appDataProvider.notifier);
+  if (existing == null) {
+    await notifier.addPerson(name: result.name, phone: result.phone);
+  } else {
+    await notifier.updatePerson(
+      Person(
+        id: existing.id,
+        name: result.name,
+        phone: result.phone,
+        createdAt: existing.createdAt,
+      ),
+    );
+  }
 }
 
-class _AddPersonDialog extends StatefulWidget {
-  const _AddPersonDialog();
+class _PersonDialog extends StatefulWidget {
+  const _PersonDialog({this.existing});
+
+  final Person? existing;
 
   @override
-  State<_AddPersonDialog> createState() => _AddPersonDialogState();
+  State<_PersonDialog> createState() => _PersonDialogState();
 }
 
-class _AddPersonDialogState extends State<_AddPersonDialog> {
+class _PersonDialogState extends State<_PersonDialog> {
   final _formKey = GlobalKey<FormState>();
-  final _name = TextEditingController();
-  final _phone = TextEditingController();
+  late final TextEditingController _name;
+  late final TextEditingController _phone;
+
+  @override
+  void initState() {
+    super.initState();
+    _name = TextEditingController(text: widget.existing?.name ?? '');
+    _phone = TextEditingController(text: widget.existing?.phone ?? '');
+  }
 
   @override
   void dispose() {
@@ -44,7 +70,7 @@ class _AddPersonDialogState extends State<_AddPersonDialog> {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      title: const Text('Add person'),
+      title: Text(widget.existing == null ? 'Add person' : 'Edit person'),
       content: Form(
         key: _formKey,
         child: Column(

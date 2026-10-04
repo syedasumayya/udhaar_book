@@ -1,3 +1,4 @@
+import 'add_person_dialog.dart';
 import '../../data/models/repayment.dart';
 import '../loans/loan_detail_page.dart';
 import 'package:flutter/material.dart';
@@ -57,6 +58,11 @@ class PersonDetailPage extends ConsumerWidget {
       appBar: AppBar(
         title: Text(person.name),
         actions: [
+          IconButton(
+            tooltip: 'Edit person',
+            icon: const Icon(Icons.edit_outlined),
+            onPressed: () => showPersonDialog(context, ref, existing: person),
+          ),
           IconButton(
             tooltip: 'Delete person',
             icon: const Icon(Icons.delete_outline),

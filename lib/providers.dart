@@ -48,6 +48,24 @@ class AppData {
   List<Repayment> repaymentsFor(String loanId) =>
       repayments.where((r) => r.loanId == loanId).toList()
         ..sort((a, b) => b.date.compareTo(a.date));
+
+  /// Unpaid loans past their due date, oldest due date first.
+  List<Loan> overdueLoans({DateTime? now}) =>
+      loans.where((l) => Balance.isOverdue(l, repayments, now: now)).toList()
+        ..sort((a, b) => a.dueDate!.compareTo(b.dueDate!));
+
+  /// Unpaid loans due from today up to [days] days ahead, soonest first.
+  List<Loan> upcomingLoans({int days = 7, DateTime? now}) {
+    final n = now ?? DateTime.now();
+    final today = DateTime(n.year, n.month, n.day);
+    final end = today.add(Duration(days: days));
+    return loans.where((l) {
+      final due = l.dueDate;
+      if (due == null) return false;
+      if (Balance.remaining(l, repayments) == 0) return false;
+      return !due.isBefore(today) && !due.isAfter(end);
+    }).toList()..sort((a, b) => a.dueDate!.compareTo(b.dueDate!));
+  }
 }
 
 class AppDataNotifier extends AsyncNotifier<AppData> {
@@ -68,6 +86,7 @@ class AppDataNotifier extends AsyncNotifier<AppData> {
     state = AsyncData(await _load());
   }
 
+  // ---- People ----
   Future<Person> addPerson({required String name, String? phone}) async {
     final person = Person(
       id: _uuid.v4(),
@@ -80,11 +99,17 @@ class AppDataNotifier extends AsyncNotifier<AppData> {
     return person;
   }
 
+  Future<void> updatePerson(Person updated) async {
+    await _repo.savePerson(updated);
+    await _refresh();
+  }
+
   Future<void> deletePerson(String id) async {
     await _repo.deletePerson(id);
     await _refresh();
   }
 
+  // ---- Loans ----
   Future<void> addLoan({
     required String personId,
     required LoanDirection direction,
@@ -107,6 +132,28 @@ class AppDataNotifier extends AsyncNotifier<AppData> {
     await _refresh();
   }
 
+  Future<void> updateLoan(Loan updated) async {
+    final data = state.requireValue;
+    final paid = Balance.paid(updated, data.repayments);
+    if (updated.principal < paid) {
+      throw ArgumentError('Amount cannot be less than what is already paid');
+    }
+    final hasEarlierPayment = data
+        .repaymentsFor(updated.id)
+        .any((r) => r.date.isBefore(updated.date));
+    if (hasEarlierPayment) {
+      throw ArgumentError('Loan date cannot be after an existing payment');
+    }
+    await _repo.saveLoan(updated);
+    await _refresh();
+  }
+
+  Future<void> deleteLoan(String id) async {
+    await _repo.deleteLoan(id);
+    await _refresh();
+  }
+
+  // ---- Repayments ----
   Future<void> addRepayment({
     required String loanId,
     required int amount,
@@ -133,11 +180,6 @@ class AppDataNotifier extends AsyncNotifier<AppData> {
 
   Future<void> deleteRepayment(String id) async {
     await _repo.deleteRepayment(id);
-    await _refresh();
-  }
-
-  Future<void> deleteLoan(String id) async {
-    await _repo.deleteLoan(id);
     await _refresh();
   }
 }

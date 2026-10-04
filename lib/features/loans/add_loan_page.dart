@@ -6,10 +6,12 @@ import '../../core/money.dart';
 import '../../data/models/loan.dart';
 import '../../providers.dart';
 
+/// Pass [existing] to edit a loan, leave it out to add a new one.
 class AddLoanPage extends ConsumerStatefulWidget {
-  const AddLoanPage({super.key, required this.personId});
+  const AddLoanPage({super.key, required this.personId, this.existing});
 
   final String personId;
+  final Loan? existing;
 
   @override
   ConsumerState<AddLoanPage> createState() => _AddLoanPageState();
@@ -17,13 +19,31 @@ class AddLoanPage extends ConsumerStatefulWidget {
 
 class _AddLoanPageState extends ConsumerState<AddLoanPage> {
   final _formKey = GlobalKey<FormState>();
-  final _amount = TextEditingController();
-  final _note = TextEditingController();
+  late final TextEditingController _amount;
+  late final TextEditingController _note;
 
-  LoanDirection _direction = LoanDirection.lent;
-  DateTime _date = DateUtils.dateOnly(DateTime.now());
+  late LoanDirection _direction;
+  late DateTime _date;
   DateTime? _dueDate;
   bool _saving = false;
+
+  bool get _isEdit => widget.existing != null;
+
+  @override
+  void initState() {
+    super.initState();
+    final e = widget.existing;
+    _direction = e?.direction ?? LoanDirection.lent;
+    _date = e?.date ?? DateUtils.dateOnly(DateTime.now());
+    _dueDate = e?.dueDate;
+    _amount = TextEditingController(
+      text: e == null ? '' : _toText(e.principal),
+    );
+    _note = TextEditingController(text: e?.note ?? '');
+  }
+
+  static String _toText(int minor) =>
+      minor % 100 == 0 ? '${minor ~/ 100}' : (minor / 100).toStringAsFixed(2);
 
   @override
   void dispose() {
@@ -49,28 +69,55 @@ class _AddLoanPageState extends ConsumerState<AddLoanPage> {
     });
   }
 
+  void _showError(String message) {
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
+  }
+
   Future<void> _save() async {
     if (!_formKey.currentState!.validate()) return;
     if (_dueDate != null && _dueDate!.isBefore(_date)) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Due date cannot be before the loan date'),
-        ),
-      );
+      _showError('Due date cannot be before the loan date');
       return;
     }
 
     setState(() => _saving = true);
-    await ref
-        .read(appDataProvider.notifier)
-        .addLoan(
+    final notifier = ref.read(appDataProvider.notifier);
+    final principal = Money.parse(_amount.text)!;
+
+    try {
+      if (_isEdit) {
+        final e = widget.existing!;
+        await notifier.updateLoan(
+          Loan(
+            id: e.id,
+            personId: e.personId,
+            direction: _direction,
+            principal: principal,
+            date: _date,
+            dueDate: _dueDate,
+            note: _note.text.trim(),
+            createdAt: e.createdAt,
+          ),
+        );
+      } else {
+        await notifier.addLoan(
           personId: widget.personId,
           direction: _direction,
-          principal: Money.parse(_amount.text)!,
+          principal: principal,
           date: _date,
           dueDate: _dueDate,
           note: _note.text,
         );
+      }
+    } on ArgumentError catch (e) {
+      if (!mounted) return;
+      setState(() => _saving = false);
+      _showError(e.message.toString());
+      return;
+    }
+
     if (!mounted) return;
     Navigator.pop(context);
   }
@@ -78,7 +125,7 @@ class _AddLoanPageState extends ConsumerState<AddLoanPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Add loan')),
+      appBar: AppBar(title: Text(_isEdit ? 'Edit loan' : 'Add loan')),
       body: Form(
         key: _formKey,
         child: ListView(
@@ -103,7 +150,7 @@ class _AddLoanPageState extends ConsumerState<AddLoanPage> {
             const SizedBox(height: 20),
             TextFormField(
               controller: _amount,
-              autofocus: true,
+              autofocus: !_isEdit,
               keyboardType: const TextInputType.numberWithOptions(
                 decimal: true,
               ),
@@ -156,9 +203,9 @@ class _AddLoanPageState extends ConsumerState<AddLoanPage> {
             const SizedBox(height: 24),
             FilledButton(
               onPressed: _saving ? null : _save,
-              child: const Padding(
-                padding: EdgeInsets.symmetric(vertical: 14),
-                child: Text('Save loan'),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 14),
+                child: Text(_isEdit ? 'Save changes' : 'Save loan'),
               ),
             ),
           ],
