@@ -13,3 +13,5 @@ repayments, balances and overdue reminders. Works offline.
 ## Notes
 - Money is stored as integer paisa to avoid rounding errors.
 - Balances are calculated from loans and repayments, never stored.
+
+
