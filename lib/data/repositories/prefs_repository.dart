@@ -89,4 +89,16 @@ class PrefsRepository implements AppRepository {
     all.removeWhere((r) => r.id == id);
     await _write(_repaymentsKey, all.map((r) => r.toJson()).toList());
   }
+
+  // ---- Bulk ----
+  @override
+  Future<void> replaceAll({
+    required List<Person> people,
+    required List<Loan> loans,
+    required List<Repayment> repayments,
+  }) async {
+    await _write(_peopleKey, people.map((p) => p.toJson()).toList());
+    await _write(_loansKey, loans.map((l) => l.toJson()).toList());
+    await _write(_repaymentsKey, repayments.map((r) => r.toJson()).toList());
+  }
 }

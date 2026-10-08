@@ -4,6 +4,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'app.dart';
 import 'data/repositories/prefs_repository.dart';
 import 'providers.dart';
+import 'settings_provider.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -11,7 +12,10 @@ Future<void> main() async {
 
   runApp(
     ProviderScope(
-      overrides: [repositoryProvider.overrideWithValue(PrefsRepository(prefs))],
+      overrides: [
+        sharedPrefsProvider.overrideWithValue(prefs),
+        repositoryProvider.overrideWithValue(PrefsRepository(prefs)),
+      ],
       child: const UdhaarBookApp(),
     ),
   );

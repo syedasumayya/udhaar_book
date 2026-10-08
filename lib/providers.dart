@@ -182,6 +182,23 @@ class AppDataNotifier extends AsyncNotifier<AppData> {
     await _repo.deleteRepayment(id);
     await _refresh();
   }
+
+  // ---- Bulk (restore / delete all) ----
+  Future<void> replaceAll({
+    required List<Person> people,
+    required List<Loan> loans,
+    required List<Repayment> repayments,
+  }) async {
+    await _repo.replaceAll(
+      people: people,
+      loans: loans,
+      repayments: repayments,
+    );
+    await _refresh();
+  }
+
+  Future<void> clearAll() =>
+      replaceAll(people: const [], loans: const [], repayments: const []);
 }
 
 final appDataProvider = AsyncNotifierProvider<AppDataNotifier, AppData>(
