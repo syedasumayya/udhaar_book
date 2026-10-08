@@ -14,4 +14,11 @@ abstract class AppRepository {
   Future<List<Repayment>> getRepayments();
   Future<void> saveRepayment(Repayment repayment);
   Future<void> deleteRepayment(String id);
+
+  /// Replaces all stored data in one go (used by restore and delete-all).
+  Future<void> replaceAll({
+    required List<Person> people,
+    required List<Loan> loans,
+    required List<Repayment> repayments,
+  });
 }
