@@ -118,7 +118,8 @@ class _PeoplePageState extends ConsumerState<PeoplePage> {
                     : ListView.separated(
                         padding: const EdgeInsets.only(bottom: 88),
                         itemCount: people.length,
-                        separatorBuilder: (_, _) => const Divider(height: 1),
+                        separatorBuilder: (context, index) =>
+                            const Divider(height: 1),
                         itemBuilder: (context, i) {
                           final p = people[i];
                           final net = data.totalsFor(p.id).net;
