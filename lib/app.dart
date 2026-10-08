@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'core/app_theme.dart';
 import 'features/home/home_shell.dart';
+import 'features/lock/lock_gate.dart';
 import 'settings_provider.dart';
 
 class UdhaarBookApp extends ConsumerWidget {
@@ -17,6 +18,8 @@ class UdhaarBookApp extends ConsumerWidget {
       theme: AppTheme.light,
       darkTheme: AppTheme.dark,
       themeMode: mode,
+      builder: (context, child) =>
+          LockGate(child: child ?? const SizedBox.shrink()),
       home: const HomeShell(),
     );
   }

@@ -3,8 +3,10 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../domain/backup.dart';
 import '../../domain/csv_report.dart';
+import '../../lock_provider.dart';
 import '../../providers.dart';
 import '../../settings_provider.dart';
+import 'pin_dialogs.dart';
 
 class SettingsPage extends ConsumerWidget {
   const SettingsPage({super.key});
@@ -130,10 +132,61 @@ class SettingsPage extends ConsumerWidget {
     _toast(context, 'All data deleted.');
   }
 
+  // ---- PIN lock ----
+  String _waitText(Duration d) {
+    final s = (d.inMilliseconds / 1000).ceil();
+    return 'Too many wrong attempts. Try again in $s seconds.';
+  }
+
+  Future<void> _setPin(BuildContext context, WidgetRef ref) async {
+    final pin = await showNewPinDialog(context, title: 'Set PIN');
+    if (pin == null || !context.mounted) return;
+    await ref.read(lockProvider.notifier).setPin(pin);
+    if (!context.mounted) return;
+    _toast(context, 'PIN lock is on. Keep a backup in case you forget it.');
+  }
+
+  Future<void> _changePin(BuildContext context, WidgetRef ref) async {
+    final notifier = ref.read(lockProvider.notifier);
+    if (notifier.waitLeft > Duration.zero) {
+      _toast(context, _waitText(notifier.waitLeft));
+      return;
+    }
+    final current = await showEnterPinDialog(
+      context,
+      title: 'Enter current PIN',
+    );
+    if (current == null || !context.mounted) return;
+    final next = await showNewPinDialog(context, title: 'New PIN');
+    if (next == null || !context.mounted) return;
+
+    final ok = await notifier.changePin(current, next);
+    if (!context.mounted) return;
+    _toast(context, ok ? 'PIN changed.' : 'Wrong current PIN.');
+  }
+
+  Future<void> _removePin(BuildContext context, WidgetRef ref) async {
+    final notifier = ref.read(lockProvider.notifier);
+    if (notifier.waitLeft > Duration.zero) {
+      _toast(context, _waitText(notifier.waitLeft));
+      return;
+    }
+    final current = await showEnterPinDialog(
+      context,
+      title: 'Enter PIN to remove it',
+    );
+    if (current == null || !context.mounted) return;
+
+    final ok = await notifier.removePin(current);
+    if (!context.mounted) return;
+    _toast(context, ok ? 'PIN lock removed.' : 'Wrong PIN.');
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final mode = ref.watch(themeModeProvider);
     final data = ref.watch(appDataProvider).value;
+    final lock = ref.watch(lockProvider);
     final scheme = Theme.of(context).colorScheme;
 
     return Scaffold(
@@ -167,6 +220,31 @@ class SettingsPage extends ConsumerWidget {
                   ref.read(themeModeProvider.notifier).set(s.first),
             ),
           ),
+          const _Header('Security'),
+          if (!lock.hasPin)
+            ListTile(
+              leading: const Icon(Icons.lock_outline),
+              title: const Text('Set PIN lock'),
+              subtitle: const Text('Ask for a PIN when the app is opened'),
+              onTap: () => _setPin(context, ref),
+            )
+          else ...[
+            ListTile(
+              leading: const Icon(Icons.lock_clock),
+              title: const Text('Lock now'),
+              onTap: () => ref.read(lockProvider.notifier).lock(),
+            ),
+            ListTile(
+              leading: const Icon(Icons.password),
+              title: const Text('Change PIN'),
+              onTap: () => _changePin(context, ref),
+            ),
+            ListTile(
+              leading: const Icon(Icons.lock_open),
+              title: const Text('Remove PIN lock'),
+              onTap: () => _removePin(context, ref),
+            ),
+          ],
           const _Header('Backup and export'),
           ListTile(
             leading: const Icon(Icons.copy_all_outlined),
