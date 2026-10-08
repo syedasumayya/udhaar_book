@@ -183,6 +183,33 @@ class AppDataNotifier extends AsyncNotifier<AppData> {
     await _refresh();
   }
 
+  /// Pays off every open loan with one person, dated today.
+  /// Returns how many loans were settled.
+  Future<int> settleAll(String personId, {DateTime? today}) async {
+    final data = state.requireValue;
+    final now = today ?? DateTime.now();
+    final day = DateTime(now.year, now.month, now.day);
+
+    var count = 0;
+    for (final loan in data.loansFor(personId)) {
+      final left = Balance.remaining(loan, data.repayments);
+      if (left == 0) continue;
+      final date = day.isBefore(loan.date) ? loan.date : day;
+      await _repo.saveRepayment(
+        Repayment(
+          id: _uuid.v4(),
+          loanId: loan.id,
+          amount: left,
+          date: date,
+          note: 'Settled all',
+        ),
+      );
+      count++;
+    }
+    if (count > 0) await _refresh();
+    return count;
+  }
+
   // ---- Bulk (restore / delete all) ----
   Future<void> replaceAll({
     required List<Person> people,
