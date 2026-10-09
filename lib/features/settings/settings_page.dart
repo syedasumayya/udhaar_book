@@ -3,8 +3,11 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../domain/backup.dart';
 import '../../domain/csv_report.dart';
+import '../../lock_provider.dart';
 import '../../providers.dart';
 import '../../settings_provider.dart';
+import 'about_tile.dart';
+import 'pin_dialogs.dart';
 
 class SettingsPage extends ConsumerWidget {
   const SettingsPage({super.key});
@@ -55,10 +58,7 @@ class SettingsPage extends ConsumerWidget {
     );
     await Clipboard.setData(ClipboardData(text: csv));
     if (!context.mounted) return;
-    _toast(
-      context,
-      'CSV copied. Paste it into Notepad and save as a .csv file.',
-    );
+    _toast(context, 'CSV copied. Paste it into Notepad and save as a .csv file.');
   }
 
   Future<void> _copyBackup(BuildContext context, WidgetRef ref) async {
@@ -71,10 +71,7 @@ class SettingsPage extends ConsumerWidget {
     );
     await Clipboard.setData(ClipboardData(text: text));
     if (!context.mounted) return;
-    _toast(
-      context,
-      'Backup copied. Save it somewhere safe (a note, an email).',
-    );
+    _toast(context, 'Backup copied. Save it somewhere safe (a note, an email).');
   }
 
   Future<void> _restore(BuildContext context, WidgetRef ref) async {
@@ -95,17 +92,14 @@ class SettingsPage extends ConsumerWidget {
     final ok = await _confirm(
       context,
       title: 'Replace all current data?',
-      message:
-          'This backup has ${backup.people.length} people, '
+      message: 'This backup has ${backup.people.length} people, '
           '${backup.loans.length} loans and ${backup.repayments.length} '
           'payments. Your current data will be replaced.',
       action: 'Restore',
     );
     if (!ok || !context.mounted) return;
 
-    await ref
-        .read(appDataProvider.notifier)
-        .replaceAll(
+    await ref.read(appDataProvider.notifier).replaceAll(
           people: backup.people,
           loans: backup.loans,
           repayments: backup.repayments,
@@ -118,8 +112,7 @@ class SettingsPage extends ConsumerWidget {
     final ok = await _confirm(
       context,
       title: 'Delete all data?',
-      message:
-          'Every person, loan and payment will be deleted. '
+      message: 'Every person, loan and payment will be deleted. '
           'Copy a backup first if you might need it. This cannot be undone.',
       action: 'Delete everything',
     );
@@ -130,10 +123,56 @@ class SettingsPage extends ConsumerWidget {
     _toast(context, 'All data deleted.');
   }
 
+  // ---- PIN lock ----
+  String _waitText(Duration d) {
+    final s = (d.inMilliseconds / 1000).ceil();
+    return 'Too many wrong attempts. Try again in $s seconds.';
+  }
+
+  Future<void> _setPin(BuildContext context, WidgetRef ref) async {
+    final pin = await showNewPinDialog(context, title: 'Set PIN');
+    if (pin == null || !context.mounted) return;
+    await ref.read(lockProvider.notifier).setPin(pin);
+    if (!context.mounted) return;
+    _toast(context, 'PIN lock is on. Keep a backup in case you forget it.');
+  }
+
+  Future<void> _changePin(BuildContext context, WidgetRef ref) async {
+    final notifier = ref.read(lockProvider.notifier);
+    if (notifier.waitLeft > Duration.zero) {
+      _toast(context, _waitText(notifier.waitLeft));
+      return;
+    }
+    final current =
+        await showEnterPinDialog(context, title: 'Enter current PIN');
+    if (current == null || !context.mounted) return;
+    final next = await showNewPinDialog(context, title: 'New PIN');
+    if (next == null || !context.mounted) return;
+
+    final ok = await notifier.changePin(current, next);
+    if (!context.mounted) return;
+    _toast(context, ok ? 'PIN changed.' : 'Wrong current PIN.');
+  }
+
+  Future<void> _removePin(BuildContext context, WidgetRef ref) async {
+    final notifier = ref.read(lockProvider.notifier);
+    if (notifier.waitLeft > Duration.zero) {
+      _toast(context, _waitText(notifier.waitLeft));
+      return;
+    }
+    final current =
+        await showEnterPinDialog(context, title: 'Enter PIN to remove it');
+    if (current == null || !context.mounted) return;
+
+    final ok = await notifier.removePin(current);
+    if (!context.mounted) return;
+    _toast(context, ok ? 'PIN lock removed.' : 'Wrong PIN.');
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final mode = ref.watch(themeModeProvider);
-    final data = ref.watch(appDataProvider).value;
+    final lock = ref.watch(lockProvider);
     final scheme = Theme.of(context).colorScheme;
 
     return Scaffold(
@@ -167,6 +206,31 @@ class SettingsPage extends ConsumerWidget {
                   ref.read(themeModeProvider.notifier).set(s.first),
             ),
           ),
+          const _Header('Security'),
+          if (!lock.hasPin)
+            ListTile(
+              leading: const Icon(Icons.lock_outline),
+              title: const Text('Set PIN lock'),
+              subtitle: const Text('Ask for a PIN when the app is opened'),
+              onTap: () => _setPin(context, ref),
+            )
+          else ...[
+            ListTile(
+              leading: const Icon(Icons.lock_clock),
+              title: const Text('Lock now'),
+              onTap: () => ref.read(lockProvider.notifier).lock(),
+            ),
+            ListTile(
+              leading: const Icon(Icons.password),
+              title: const Text('Change PIN'),
+              onTap: () => _changePin(context, ref),
+            ),
+            ListTile(
+              leading: const Icon(Icons.lock_open),
+              title: const Text('Remove PIN lock'),
+              onTap: () => _removePin(context, ref),
+            ),
+          ],
           const _Header('Backup and export'),
           ListTile(
             leading: const Icon(Icons.copy_all_outlined),
@@ -189,23 +253,12 @@ class SettingsPage extends ConsumerWidget {
           const _Header('Danger zone'),
           ListTile(
             leading: Icon(Icons.delete_forever_outlined, color: scheme.error),
-            title: Text(
-              'Delete all data',
-              style: TextStyle(color: scheme.error),
-            ),
+            title: Text('Delete all data',
+                style: TextStyle(color: scheme.error)),
             onTap: () => _clearAll(context, ref),
           ),
           const _Header('About'),
-          ListTile(
-            leading: const Icon(Icons.info_outline),
-            title: const Text('Udhaar Book'),
-            subtitle: Text(
-              data == null
-                  ? 'Loading...'
-                  : '${data.people.length} people • ${data.loans.length} loans '
-                        '• ${data.repayments.length} payments',
-            ),
-          ),
+          const AboutTile(),
         ],
       ),
     );
@@ -224,9 +277,9 @@ class _Header extends StatelessWidget {
       child: Text(
         text,
         style: Theme.of(context).textTheme.titleSmall?.copyWith(
-          color: Theme.of(context).colorScheme.primary,
-          fontWeight: FontWeight.w600,
-        ),
+              color: Theme.of(context).colorScheme.primary,
+              fontWeight: FontWeight.w600,
+            ),
       ),
     );
   }

@@ -120,6 +120,7 @@ class _PeoplePageState extends ConsumerState<PeoplePage> {
                         itemCount: people.length,
                         separatorBuilder: (context, index) =>
                             const Divider(height: 1),
+                        separatorBuilder: (_, _) => const Divider(height: 1),
                         itemBuilder: (context, i) {
                           final p = people[i];
                           final net = data.totalsFor(p.id).net;

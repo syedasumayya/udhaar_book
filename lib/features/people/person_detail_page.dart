@@ -1,14 +1,14 @@
-import 'add_person_dialog.dart';
-import '../../data/models/repayment.dart';
-import '../loans/loan_detail_page.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/date_format.dart';
 import '../../core/money.dart';
 import '../../data/models/loan.dart';
+import '../../data/models/repayment.dart';
 import '../../domain/balance.dart';
 import '../../providers.dart';
 import '../loans/add_loan_page.dart';
+import '../loans/loan_detail_page.dart';
+import 'add_person_dialog.dart';
 
 class PersonDetailPage extends ConsumerWidget {
   const PersonDetailPage({super.key, required this.personId});
@@ -42,6 +42,55 @@ class PersonDetailPage extends ConsumerWidget {
     await notifier.deletePerson(personId);
   }
 
+  Future<void> _settleAll(
+    BuildContext context,
+    WidgetRef ref,
+    AppData data,
+    String name,
+  ) async {
+    final open = data
+        .loansFor(personId)
+        .where((l) => Balance.remaining(l, data.repayments) > 0)
+        .length;
+    if (open == 0) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Nothing to settle.')));
+      return;
+    }
+
+    final t = data.totalsFor(personId);
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Settle all?'),
+        content: Text(
+          '$open open loan${open == 1 ? '' : 's'} will be marked as fully '
+          'paid today.\n\n'
+          '$name owes you ${Money.format(t.owedToMe)}\n'
+          'You owe $name ${Money.format(t.iOwe)}',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Settle all'),
+          ),
+        ],
+      ),
+    );
+    if (ok != true || !context.mounted) return;
+
+    final n = await ref.read(appDataProvider.notifier).settleAll(personId);
+    if (!context.mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Settled $n loan${n == 1 ? '' : 's'}.')),
+    );
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final data = ref.watch(appDataProvider).value;
@@ -58,6 +107,11 @@ class PersonDetailPage extends ConsumerWidget {
       appBar: AppBar(
         title: Text(person.name),
         actions: [
+          IconButton(
+            tooltip: 'Settle all',
+            icon: const Icon(Icons.done_all),
+            onPressed: () => _settleAll(context, ref, data, person.name),
+          ),
           IconButton(
             tooltip: 'Edit person',
             icon: const Icon(Icons.edit_outlined),
