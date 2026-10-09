@@ -39,6 +39,7 @@ dependencies:
   flutter_riverpod: ^3.4.3
   intl: ^0.20.3
   crypto: ^3.0.7
+  package_info_plus: ^10.2.2
 
 dev_dependencies:
   flutter_test:

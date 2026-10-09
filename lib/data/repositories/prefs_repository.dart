@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/loan.dart';
@@ -16,8 +17,14 @@ class PrefsRepository implements AppRepository {
   List<T> _read<T>(String key, T Function(Map<String, dynamic>) fromJson) {
     final raw = _prefs.getString(key);
     if (raw == null) return [];
-    final list = jsonDecode(raw) as List;
-    return list.map((e) => fromJson(e as Map<String, dynamic>)).toList();
+    try {
+      final list = jsonDecode(raw) as List;
+      return list.map((e) => fromJson(e as Map<String, dynamic>)).toList();
+    } catch (_) {
+      // Keep the unreadable text so nothing is lost, then start empty.
+      unawaited(_prefs.setString('${key}_unreadable', raw));
+      return [];
+    }
   }
 
   Future<void> _write(String key, List<Map<String, dynamic>> items) async {
