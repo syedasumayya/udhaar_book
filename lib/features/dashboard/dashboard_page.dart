@@ -3,9 +3,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/date_format.dart';
 import '../../core/money.dart';
 import '../../data/models/loan.dart';
+import '../../data/models/person.dart';
 import '../../domain/balance.dart';
 import '../../providers.dart';
 import '../loans/loan_detail_page.dart';
+import '../people/person_detail_page.dart';
 
 class DashboardPage extends ConsumerWidget {
   const DashboardPage({super.key});
@@ -46,6 +48,8 @@ class DashboardPage extends ConsumerWidget {
                 color: t.net >= 0 ? scheme.primary : scheme.error,
                 icon: Icons.account_balance_wallet_outlined,
               ),
+              if (data.people.isEmpty) const _WelcomeCard(),
+              _TopBalances(data: data),
               if (overdue.isNotEmpty)
                 _DueSection(
                   title: 'Overdue (${overdue.length})',
@@ -63,7 +67,9 @@ class DashboardPage extends ConsumerWidget {
               if (overdue.isEmpty && upcoming.isEmpty && data.loans.isNotEmpty)
                 const Padding(
                   padding: EdgeInsets.all(24),
-                  child: Center(child: Text('Nothing overdue or due soon. 🎉')),
+                  child: Center(
+                    child: Text('Nothing overdue or due soon. 🎉'),
+                  ),
                 ),
             ],
           );
@@ -103,10 +109,10 @@ class _StatCard extends StatelessWidget {
                   const SizedBox(height: 4),
                   Text(
                     Money.format(amount),
-                    style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                      color: color,
-                      fontWeight: FontWeight.w600,
-                    ),
+                    style: Theme.of(context)
+                        .textTheme
+                        .headlineSmall
+                        ?.copyWith(color: color, fontWeight: FontWeight.w600),
                   ),
                 ],
               ),
@@ -114,6 +120,92 @@ class _StatCard extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+class _WelcomeCard extends StatelessWidget {
+  const _WelcomeCard();
+
+  @override
+  Widget build(BuildContext context) {
+    return const Card(
+      child: Padding(
+        padding: EdgeInsets.all(20),
+        child: Text(
+          'Welcome to Udhaar Book.\n\n'
+          'Open the People tab, add someone, then record a loan. '
+          'Your totals will show up here.',
+        ),
+      ),
+    );
+  }
+}
+
+class _TopBalances extends StatelessWidget {
+  const _TopBalances({required this.data});
+
+  final AppData data;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+
+    final rows = <({Person person, int net})>[];
+    for (final p in data.people) {
+      final net = data.totalsFor(p.id).net;
+      if (net != 0) rows.add((person: p, net: net));
+    }
+    if (rows.isEmpty) return const SizedBox.shrink();
+
+    rows.sort((a, b) => b.net.abs().compareTo(a.net.abs()));
+    final top = rows.take(5).toList();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(4, 20, 4, 8),
+          child: Text(
+            'Biggest balances',
+            style: Theme.of(context)
+                .textTheme
+                .titleMedium
+                ?.copyWith(fontWeight: FontWeight.w600),
+          ),
+        ),
+        Card(
+          child: Column(
+            children: [
+              for (var i = 0; i < top.length; i++) ...[
+                if (i > 0) const Divider(height: 1),
+                ListTile(
+                  onTap: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) =>
+                          PersonDetailPage(personId: top[i].person.id),
+                    ),
+                  ),
+                  leading: CircleAvatar(
+                    child: Text(
+                        top[i].person.name.characters.first.toUpperCase()),
+                  ),
+                  title: Text(top[i].person.name),
+                  subtitle: Text(top[i].net > 0 ? 'Owes you' : 'You owe'),
+                  trailing: Text(
+                    Money.format(top[i].net.abs()),
+                    style: TextStyle(
+                      fontWeight: FontWeight.w600,
+                      color: top[i].net > 0 ? scheme.primary : scheme.error,
+                    ),
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ],
     );
   }
 }
@@ -140,10 +232,10 @@ class _DueSection extends StatelessWidget {
           padding: const EdgeInsets.fromLTRB(4, 20, 4, 8),
           child: Text(
             title,
-            style: Theme.of(context).textTheme.titleMedium?.copyWith(
-              color: color,
-              fontWeight: FontWeight.w600,
-            ),
+            style: Theme.of(context)
+                .textTheme
+                .titleMedium
+                ?.copyWith(color: color, fontWeight: FontWeight.w600),
           ),
         ),
         Card(
@@ -183,8 +275,7 @@ class _DueTile extends StatelessWidget {
       ),
       title: Text(name),
       subtitle: Text(
-        '${lent ? 'Owes you' : 'You owe'} • due ${formatDate(loan.dueDate!)}',
-      ),
+          '${lent ? 'Owes you' : 'You owe'} • due ${formatDate(loan.dueDate!)}'),
       trailing: Text(
         Money.format(left),
         style: const TextStyle(fontWeight: FontWeight.w600),
