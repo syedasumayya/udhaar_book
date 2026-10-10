@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/money.dart';
+import '../../core/widgets.dart';
+import '../../data/models/person.dart';
+import '../../domain/balance.dart';
 import '../../providers.dart';
 import 'add_person_dialog.dart';
 import 'person_detail_page.dart';
@@ -43,8 +46,13 @@ class _PeoplePageState extends ConsumerState<PeoplePage> {
     final async = ref.watch(appDataProvider);
     final scheme = Theme.of(context).colorScheme;
 
+    OutlineInputBorder border(Color color) => OutlineInputBorder(
+          borderRadius: BorderRadius.circular(14),
+          borderSide: BorderSide(color: color),
+        );
+
     return Scaffold(
-      appBar: AppBar(title: const Text('People')),
+      appBar: AppBar(title: const Text('People'), centerTitle: false),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () => showPersonDialog(context, ref),
         icon: const Icon(Icons.person_add_alt_1),
@@ -55,114 +63,171 @@ class _PeoplePageState extends ConsumerState<PeoplePage> {
         error: (e, _) => Center(child: Text('Something went wrong: $e')),
         data: (data) {
           if (data.people.isEmpty) {
-            return const Center(
-              child: Padding(
-                padding: EdgeInsets.all(32),
-                child: Text(
-                  'No one here yet.\nTap "Add person" to start.',
-                  textAlign: TextAlign.center,
-                ),
-              ),
+            return const EmptyState(
+              icon: Icons.people_outline,
+              title: 'No one here yet',
+              message: 'Add the people you lend to or borrow from, '
+                  'then record your first loan.',
             );
           }
 
           final q = _query.trim().toLowerCase();
-          final people =
-              data.people.where((p) {
-                final matchesQuery =
-                    q.isEmpty ||
-                    p.name.toLowerCase().contains(q) ||
-                    (p.phone ?? '').contains(q);
-                return matchesQuery && _matchesFilter(data.totalsFor(p.id).net);
-              }).toList()..sort(
-                (a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()),
-              );
+          final people = data.people.where((p) {
+            final matchesQuery = q.isEmpty ||
+                p.name.toLowerCase().contains(q) ||
+                (p.phone ?? '').contains(q);
+            return matchesQuery && _matchesFilter(data.totalsFor(p.id).net);
+          }).toList()
+            ..sort(
+              (a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()),
+            );
 
-          return Column(
-            children: [
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
-                child: TextField(
-                  onChanged: (v) => setState(() => _query = v),
-                  decoration: const InputDecoration(
-                    hintText: 'Search name or phone',
-                    prefixIcon: Icon(Icons.search),
-                    border: OutlineInputBorder(),
-                    isDense: true,
+          return ContentWidth(
+            child: Column(
+              children: [
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+                  child: TextField(
+                    onChanged: (v) => setState(() => _query = v),
+                    decoration: InputDecoration(
+                      hintText: 'Search name or phone',
+                      prefixIcon: const Icon(Icons.search),
+                      filled: true,
+                      fillColor: scheme.surfaceContainerLowest,
+                      isDense: true,
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 14,
+                      ),
+                      border: border(scheme.outlineVariant),
+                      enabledBorder: border(scheme.outlineVariant),
+                      focusedBorder: border(scheme.primary),
+                    ),
                   ),
                 ),
-              ),
-              SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 8,
-                ),
-                child: Row(
-                  children: [
-                    for (final f in _Filter.values)
-                      Padding(
-                        padding: const EdgeInsets.only(right: 8),
-                        child: ChoiceChip(
-                          label: Text(_labels[f]!),
-                          selected: _filter == f,
-                          onSelected: (_) => setState(() => _filter = f),
+                SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 10,
+                  ),
+                  child: Row(
+                    children: [
+                      for (final f in _Filter.values)
+                        Padding(
+                          padding: const EdgeInsets.only(right: 8),
+                          child: ChoiceChip(
+                            label: Text(_labels[f]!),
+                            selected: _filter == f,
+                            onSelected: (_) => setState(() => _filter = f),
+                          ),
                         ),
-                      ),
-                  ],
+                    ],
+                  ),
                 ),
-              ),
-              Expanded(
-                child: people.isEmpty
-                    ? const Center(child: Text('No matching people.'))
-                    : ListView.separated(
-                        padding: const EdgeInsets.only(bottom: 88),
-                        itemCount: people.length,
-                        separatorBuilder: (_, _) => const Divider(height: 1),
-                        itemBuilder: (context, i) {
-                          final p = people[i];
-                          final net = data.totalsFor(p.id).net;
-                          final color = net > 0
-                              ? scheme.primary
-                              : net < 0
-                              ? scheme.error
-                              : scheme.outline;
-
-                          return ListTile(
-                            leading: CircleAvatar(
-                              child: Text(
-                                p.name.characters.first.toUpperCase(),
-                              ),
-                            ),
-                            title: Text(p.name),
-                            subtitle: Text(
-                              net == 0
-                                  ? 'Settled'
-                                  : net > 0
-                                  ? 'Owes you'
-                                  : 'You owe',
-                            ),
-                            trailing: Text(
-                              net == 0 ? '' : Money.format(net.abs()),
-                              style: TextStyle(
-                                color: color,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                            onTap: () => Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (_) =>
-                                    PersonDetailPage(personId: p.id),
-                              ),
-                            ),
-                          );
-                        },
-                      ),
-              ),
-            ],
+                Expanded(
+                  child: people.isEmpty
+                      ? const EmptyState(
+                          icon: Icons.search_off,
+                          title: 'No matching people',
+                          message: 'Try a different name or filter.',
+                        )
+                      : ListView.separated(
+                          padding: const EdgeInsets.fromLTRB(16, 4, 16, 96),
+                          itemCount: people.length,
+                          separatorBuilder: (context, index) =>
+                              const SizedBox(height: 10),
+                          itemBuilder: (context, i) => _PersonCard(
+                            person: people[i],
+                            totals: data.totalsFor(people[i].id),
+                            loanCount: data.loansFor(people[i].id).length,
+                          ),
+                        ),
+                ),
+              ],
+            ),
           );
         },
+      ),
+    );
+  }
+}
+
+class _PersonCard extends StatelessWidget {
+  const _PersonCard({
+    required this.person,
+    required this.totals,
+    required this.loanCount,
+  });
+
+  final Person person;
+  final Totals totals;
+  final int loanCount;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final net = totals.net;
+    final color = net > 0 ? context.positiveColor : context.negativeColor;
+    final subtitle = person.phone ??
+        (loanCount == 0
+            ? 'No loans yet'
+            : '$loanCount loan${loanCount == 1 ? '' : 's'}');
+
+    return AppCard(
+      onTap: () => Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => PersonDetailPage(personId: person.id),
+        ),
+      ),
+      child: Row(
+        children: [
+          PersonAvatar(name: person.name),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  person.name,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.titleMedium,
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  subtitle,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 8),
+          if (net == 0)
+            StatusPill('Settled', color: theme.colorScheme.outline)
+          else
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                Text(
+                  Money.format(net.abs()),
+                  style: TextStyle(fontWeight: FontWeight.w700, color: color),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  net > 0 ? 'Owes you' : 'You owe',
+                  style: theme.textTheme.labelSmall?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              ],
+            ),
+        ],
       ),
     );
   }

@@ -10,35 +10,93 @@ class HomeShell extends StatefulWidget {
   State<HomeShell> createState() => _HomeShellState();
 }
 
+class _Item {
+  const _Item(this.label, this.icon, this.selectedIcon);
+
+  final String label;
+  final IconData icon;
+  final IconData selectedIcon;
+}
+
 class _HomeShellState extends State<HomeShell> {
   int _index = 0;
 
+  static const _items = [
+    _Item('Dashboard', Icons.dashboard_outlined, Icons.dashboard),
+    _Item('People', Icons.people_outline, Icons.people),
+    _Item('Settings', Icons.settings_outlined, Icons.settings),
+  ];
+
   static const _pages = [DashboardPage(), PeoplePage(), SettingsPage()];
+
+  void _select(int i) => setState(() => _index = i);
 
   @override
   Widget build(BuildContext context) {
+    final wide = MediaQuery.sizeOf(context).width >= 900;
+
+    if (wide) {
+      return Scaffold(
+        body: Row(
+          children: [
+            NavigationRail(
+              selectedIndex: _index,
+              onDestinationSelected: _select,
+              labelType: NavigationRailLabelType.all,
+              leading: const Padding(
+                padding: EdgeInsets.symmetric(vertical: 20),
+                child: _Brand(),
+              ),
+              destinations: [
+                for (final item in _items)
+                  NavigationRailDestination(
+                    icon: Icon(item.icon),
+                    selectedIcon: Icon(item.selectedIcon),
+                    label: Text(item.label),
+                  ),
+              ],
+            ),
+            const VerticalDivider(width: 1),
+            Expanded(child: _pages[_index]),
+          ],
+        ),
+      );
+    }
+
     return Scaffold(
       body: _pages[_index],
       bottomNavigationBar: NavigationBar(
         selectedIndex: _index,
-        onDestinationSelected: (i) => setState(() => _index = i),
-        destinations: const [
-          NavigationDestination(
-            icon: Icon(Icons.dashboard_outlined),
-            selectedIcon: Icon(Icons.dashboard),
-            label: 'Dashboard',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.people_outline),
-            selectedIcon: Icon(Icons.people),
-            label: 'People',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.settings_outlined),
-            selectedIcon: Icon(Icons.settings),
-            label: 'Settings',
-          ),
+        onDestinationSelected: _select,
+        destinations: [
+          for (final item in _items)
+            NavigationDestination(
+              icon: Icon(item.icon),
+              selectedIcon: Icon(item.selectedIcon),
+              label: item.label,
+            ),
         ],
+      ),
+    );
+  }
+}
+
+class _Brand extends StatelessWidget {
+  const _Brand();
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Container(
+      width: 44,
+      height: 44,
+      decoration: BoxDecoration(
+        color: scheme.primary,
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: Icon(
+        Icons.account_balance_wallet_outlined,
+        color: scheme.onPrimary,
       ),
     );
   }
