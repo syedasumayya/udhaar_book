@@ -25,18 +25,15 @@ class PersonDetailPage extends ConsumerWidget {
       builder: (ctx) => AlertDialog(
         title: const Text('Delete this person?'),
         content: const Text(
-          'All their loans and repayments will be deleted too. '
-          'This cannot be undone.',
+          'All their loans and repayments will be deleted too. This cannot be undone.',
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Cancel'),
-          ),
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Cancel')),
           FilledButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Delete'),
-          ),
+              onPressed: () => Navigator.pop(ctx, true),
+              child: const Text('Delete')),
         ],
       ),
     );
@@ -58,9 +55,9 @@ class PersonDetailPage extends ConsumerWidget {
         .where((l) => Balance.remaining(l, data.repayments) > 0)
         .length;
     if (open == 0) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Nothing to settle.')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Nothing to settle.')));
       return;
     }
 
@@ -112,6 +109,11 @@ class PersonDetailPage extends ConsumerWidget {
         centerTitle: false,
         actions: [
           IconButton(
+            tooltip: 'Settle all',
+            icon: const Icon(Icons.done_all),
+            onPressed: () => _settleAll(context, ref, data, person.name),
+          ),
+          IconButton(
             tooltip: 'Edit person',
             icon: const Icon(Icons.edit_outlined),
             onPressed: () => showPersonDialog(context, ref, existing: person),
@@ -131,122 +133,37 @@ class PersonDetailPage extends ConsumerWidget {
         icon: const Icon(Icons.add),
         label: const Text('Add loan'),
       ),
-      body: ContentWidth(
-        child: ListView(
-          padding: const EdgeInsets.fromLTRB(16, 8, 16, 96),
-          children: [
-            _Header(
-              person: person,
-              totals: data.totalsFor(personId),
-              onShare: () => showShareSummarySheet(
-                context,
-                person: person,
-                text: SummaryText.forPerson(
-                  person: person,
-                  loans: loans,
-                  repayments: data.repayments,
-                ),
-              ),
-              onSettle: () => _settleAll(context, ref, data, person.name),
-            ),
-            SectionHeader(
-              'Loans',
-              trailing: Text(
-                '${loans.length}',
-                style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                      color: Theme.of(context).colorScheme.onSurfaceVariant,
-                    ),
-              ),
-            ),
-            if (loans.isEmpty)
-              const AppCard(
-                child: Text('No loans yet. Tap "Add loan" to record one.'),
-              ),
-            for (final loan in loans)
-              Padding(
-                padding: const EdgeInsets.only(bottom: 10),
-                child: _LoanCard(loan: loan, repayments: data.repayments),
-              ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _Header extends StatelessWidget {
-  const _Header({
-    required this.person,
-    required this.totals,
-    required this.onShare,
-    required this.onSettle,
-  });
-
-  final Person person;
-  final Totals totals;
-  final VoidCallback onShare;
-  final VoidCallback onSettle;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final net = totals.net;
-    final label = net == 0
-        ? 'All settled'
-        : net > 0
-            ? '${person.name} owes you'
-            : 'You owe ${person.name}';
-
-    return AppCard(
-      padding: const EdgeInsets.all(20),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      body: ListView(
+        padding: const EdgeInsets.only(bottom: 88),
         children: [
-          Row(
-            children: [
-              PersonAvatar(name: person.name, size: 56),
-              const SizedBox(width: 14),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      person.name,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: theme.textTheme.titleLarge,
+          Card(
+            margin: const EdgeInsets.all(16),
+            child: Padding(
+              padding: const EdgeInsets.all(20),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    net == 0
+                        ? 'All settled'
+                        : net > 0
+                        ? '${person.name} owes you'
+                        : 'You owe ${person.name}',
+                    style: Theme.of(context).textTheme.labelLarge,
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    Money.format(net.abs()),
+                    style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                      color: net >= 0 ? scheme.primary : scheme.error,
+                      fontWeight: FontWeight.w600,
                     ),
-                    if (person.phone != null)
-                      Text(
-                        person.phone!,
-                        style: theme.textTheme.bodyMedium?.copyWith(
-                          color: theme.colorScheme.onSurfaceVariant,
-                        ),
-                      ),
+                  ),
+                  if (person.phone != null) ...[
+                    const SizedBox(height: 8),
+                    Text(person.phone!),
                   ],
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 20),
-          Text(
-            label,
-            style: theme.textTheme.labelLarge?.copyWith(
-              color: theme.colorScheme.onSurfaceVariant,
-            ),
-          ),
-          const SizedBox(height: 4),
-          FittedBox(
-            fit: BoxFit.scaleDown,
-            alignment: Alignment.centerLeft,
-            child: Text(
-              Money.format(net.abs()),
-              style: theme.textTheme.headlineMedium?.copyWith(
-                color: net == 0
-                    ? theme.colorScheme.onSurface
-                    : net > 0
-                        ? context.positiveColor
-                        : context.negativeColor,
+                ],
               ),
             ),
           ),
@@ -336,76 +253,30 @@ class _LoanCard extends StatelessWidget {
         context,
         MaterialPageRoute(builder: (_) => LoanDetailPage(loanId: loan.id)),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              IconBadge(
-                icon: lent ? Icons.arrow_upward : Icons.arrow_downward,
-                color: accent,
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      Money.format(loan.principal),
-                      style: theme.textTheme.titleMedium,
-                    ),
-                    Text(
-                      '${lent ? 'You gave' : 'You took'} • '
-                      '${formatDate(loan.date)}',
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: theme.colorScheme.onSurfaceVariant,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              if (left == 0)
-                StatusPill('Paid', color: context.positiveColor)
-              else
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    Text(
-                      Money.format(left),
-                      style: const TextStyle(fontWeight: FontWeight.w700),
-                    ),
-                    const SizedBox(height: 2),
-                    if (overdue)
-                      StatusPill('Overdue', color: context.negativeColor)
-                    else
-                      Text(
-                        'left',
-                        style: theme.textTheme.labelSmall?.copyWith(
-                          color: theme.colorScheme.onSurfaceVariant,
-                        ),
-                      ),
-                  ],
-                ),
-            ],
-          ),
-          const SizedBox(height: 14),
-          ClipRRect(
-            borderRadius: BorderRadius.circular(4),
-            child: LinearProgressIndicator(value: progress, minHeight: 6),
-          ),
-          if (loan.dueDate != null) ...[
-            const SizedBox(height: 8),
-            Text(
-              'Due ${formatDate(loan.dueDate!)}',
-              style: theme.textTheme.bodySmall?.copyWith(
-                color: overdue
-                    ? context.negativeColor
-                    : theme.colorScheme.onSurfaceVariant,
-              ),
-            ),
-          ],
-        ],
+      leading: CircleAvatar(
+        child: Icon(lent ? Icons.arrow_upward : Icons.arrow_downward),
       ),
+      title: Text(Money.format(loan.principal)),
+      subtitle: Text(subtitle.toString()),
+      trailing: left == 0
+          ? const Chip(label: Text('Paid'))
+          : Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                Text(
+                  Money.format(left),
+                  style: const TextStyle(fontWeight: FontWeight.w600),
+                ),
+                Text(
+                  overdue ? 'Overdue' : 'left',
+                  style: TextStyle(
+                    color: overdue ? scheme.error : scheme.outline,
+                    fontSize: 12,
+                  ),
+                ),
+              ],
+            ),
     );
   }
 }
