@@ -3,10 +3,7 @@
 [![CI](https://github.com/syedasumayya/udhaar_book/actions/workflows/dart.yml/badge.svg)](https://github.com/syedasumayya/udhaar_book/actions/workflows/dart.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
-A private ledger for money you lend or borrow. Track people, loans and
-repayments, see who owes whom, spot what is overdue, and send someone a
-summary of what is owed. Built with Flutter. Everything is stored on your own
-device, with no account and no server.
+Udhaar Book, a Flutter app for tracking money you lend or borrow. It handles people, loans, partial repayments, overdue tracking, PIN lock, backup/restore and WhatsApp summaries. It works offline, has automated tests and CI, and is deployed to the web with GitHub Pages
 
 **Live demo:** https://syedasumayya.github.io/udhaar_book/
 
