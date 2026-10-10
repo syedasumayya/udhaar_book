@@ -5,10 +5,12 @@ import '../../core/money.dart';
 import '../../data/models/loan.dart';
 import '../../data/models/repayment.dart';
 import '../../domain/balance.dart';
+import '../../domain/summary_text.dart';
 import '../../providers.dart';
 import '../loans/add_loan_page.dart';
 import '../loans/loan_detail_page.dart';
 import 'add_person_dialog.dart';
+import 'share_summary_sheet.dart';
 
 class PersonDetailPage extends ConsumerWidget {
   const PersonDetailPage({super.key, required this.personId});
@@ -21,17 +23,14 @@ class PersonDetailPage extends ConsumerWidget {
       builder: (ctx) => AlertDialog(
         title: const Text('Delete this person?'),
         content: const Text(
-          'All their loans and repayments will be deleted too. This cannot be undone.',
-        ),
+            'All their loans and repayments will be deleted too. This cannot be undone.'),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Cancel'),
-          ),
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Cancel')),
           FilledButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Delete'),
-          ),
+              onPressed: () => Navigator.pop(ctx, true),
+              child: const Text('Delete')),
         ],
       ),
     );
@@ -53,9 +52,8 @@ class PersonDetailPage extends ConsumerWidget {
         .where((l) => Balance.remaining(l, data.repayments) > 0)
         .length;
     if (open == 0) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Nothing to settle.')));
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('Nothing to settle.')));
       return;
     }
 
@@ -108,6 +106,19 @@ class PersonDetailPage extends ConsumerWidget {
         title: Text(person.name),
         actions: [
           IconButton(
+            tooltip: 'Share summary',
+            icon: const Icon(Icons.share_outlined),
+            onPressed: () => showShareSummarySheet(
+              context,
+              person: person,
+              text: SummaryText.forPerson(
+                person: person,
+                loans: loans,
+                repayments: data.repayments,
+              ),
+            ),
+          ),
+          IconButton(
             tooltip: 'Settle all',
             icon: const Icon(Icons.done_all),
             onPressed: () => _settleAll(context, ref, data, person.name),
@@ -146,17 +157,17 @@ class PersonDetailPage extends ConsumerWidget {
                     net == 0
                         ? 'All settled'
                         : net > 0
-                        ? '${person.name} owes you'
-                        : 'You owe ${person.name}',
+                            ? '${person.name} owes you'
+                            : 'You owe ${person.name}',
                     style: Theme.of(context).textTheme.labelLarge,
                   ),
                   const SizedBox(height: 4),
                   Text(
                     Money.format(net.abs()),
                     style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                      color: net >= 0 ? scheme.primary : scheme.error,
-                      fontWeight: FontWeight.w600,
-                    ),
+                          color: net >= 0 ? scheme.primary : scheme.error,
+                          fontWeight: FontWeight.w600,
+                        ),
                   ),
                   if (person.phone != null) ...[
                     const SizedBox(height: 8),
@@ -214,16 +225,13 @@ class _LoanTile extends StatelessWidget {
               mainAxisAlignment: MainAxisAlignment.center,
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [
-                Text(
-                  Money.format(left),
-                  style: const TextStyle(fontWeight: FontWeight.w600),
-                ),
+                Text(Money.format(left),
+                    style: const TextStyle(fontWeight: FontWeight.w600)),
                 Text(
                   overdue ? 'Overdue' : 'left',
                   style: TextStyle(
-                    color: overdue ? scheme.error : scheme.outline,
-                    fontSize: 12,
-                  ),
+                      color: overdue ? scheme.error : scheme.outline,
+                      fontSize: 12),
                 ),
               ],
             ),
