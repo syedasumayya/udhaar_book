@@ -4,40 +4,50 @@
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
 A private ledger for money you lend or borrow. Track people, loans and
-repayments, see who owes whom, and spot what is overdue. Built with Flutter.
-Everything is stored on your own device.
+repayments, see who owes whom, spot what is overdue, and send someone a
+summary of what is owed. Built with Flutter. Everything is stored on your own
+device, with no account and no server.
+
+**Live demo:** https://syedasumayya.github.io/udhaar_book/
+
+<!-- Add screenshots, or delete this block until you have them. -->
+<p>
+  <img src="docs/screenshots/dashboard.png" width="240" alt="Dashboard">
+  <img src="docs/screenshots/people.png" width="240" alt="People">
+  <img src="docs/screenshots/loan.png" width="240" alt="Loan details">
+</p>
 
 ## Features
 
 - **People and loans**: record money you gave or took, with a date, a due date
   and a note
 - **Repayments**: partial payments, payment history, "Mark paid", and
-  "Settle all" for everything you owe or are owed by one person
+  "Settle all" to close every open loan with one person
 - **Dashboard**: what people owe you, what you owe, your net position, overdue
   loans, loans due in the next 7 days, and your biggest balances
+- **Share a summary**: build a short statement of what is owed with one person,
+  then copy it or send it through WhatsApp
 - **Search and filters** on the People list (all, owes you, you owe, settled)
-- **Edit** people and loans, with checks that stop you from breaking the
-  balances (for example, lowering a loan below what is already paid)
+- **Edit** people and loans, with checks that stop you from breaking balances
+  (for example, lowering a loan below what is already paid)
 - **PIN lock**: 4 to 6 digits, stored as a salted hash, with a timed lockout
   after repeated wrong attempts
-- **Backup and restore**: copy your whole ledger as text and restore it later
-  (the backup is validated before anything is replaced)
+- **Backup and restore**: copy your whole ledger as text and restore it later;
+  a backup is fully validated before anything is replaced
 - **CSV export** for Excel or Google Sheets
 - **Light, dark and system themes**
-- **Works offline**: no account and no server
+- **Works offline**, and corrupted stored data is set aside instead of
+  crashing the app
 
-## How it works
+## Try it
 
-- Money is stored as whole **paisa** (integers), never as decimals, so there
-  are no rounding errors.
-- A loan's remaining balance is **calculated** from the loan and its
-  repayments. It is never stored, so it cannot go out of sync.
-- Storage sits behind an `AppRepository` interface. Today it uses
-  `shared_preferences`; a SQLite version can replace it without changing any
-  screen.
-- State management uses [Riverpod](https://riverpod.dev).
+| Where | How |
+|---|---|
+| **Web** | Open the live demo. On a phone, choose *Add to Home screen* in your browser menu to install it like an app. |
+| **Android** | Open the **Actions** tab, run **Build Android APK**, download the `udhaar-book-apk` artifact, unzip it and install `app-release.apk`. |
+| **From source** | See below. |
 
-## Run it
+## Run from source
 
 You need the [Flutter SDK](https://docs.flutter.dev/get-started/install)
 (developed on Flutter 3.44).
@@ -56,7 +66,21 @@ flutter analyze
 flutter test
 ```
 
-GitHub Actions runs both on every push and pull request.
+GitHub Actions runs both on every push and pull request, and deploys the web
+app from `main`.
+
+## How it works
+
+- Money is stored as whole **paisa** (integers), never as decimals, so there
+  are no rounding errors.
+- A loan's remaining balance is **calculated** from the loan and its
+  repayments. It is never stored, so it cannot go out of sync.
+- Storage sits behind an `AppRepository` interface. Today it uses
+  `shared_preferences`, and another implementation can replace it without
+  touching any screen.
+- State management uses [Riverpod](https://riverpod.dev).
+- Rules such as "a payment cannot exceed what is left" are enforced in the
+  state layer, not only in the forms.
 
 ## Project structure
 
@@ -64,26 +88,12 @@ GitHub Actions runs both on every push and pull request.
 lib/
   core/        theme, money and date helpers
   data/        models and storage (repository interface + implementation)
-  domain/      balance math, backup, CSV export, PIN hashing
+  domain/      balance math, backup, CSV, PIN hashing, summary text
   features/    dashboard, people, loans, settings, lock screen
   providers.dart, lock_provider.dart, settings_provider.dart
 test/          unit, state and widget tests
+.github/       CI, web deploy and Android build workflows
 ```
-
-## Limits
-
-- Data lives in this browser or device only. Use **Settings > Copy backup** to
-  move it between devices.
-- The PIN lock is a privacy lock, not encryption. If you forget the PIN, the
-  only way back in is clearing the app's data, so keep a backup.
-- Reminders and notifications are not built yet.
-
-## Roadmap
-
-- [ ] Due-date reminders (notifications)
-- [ ] SQLite storage
-- [ ] App icon
-- [ ] Share a balance summary with a contact
 
 ## License
 
