@@ -10,13 +10,6 @@ device, with no account and no server.
 
 **Live demo:** https://syedasumayya.github.io/udhaar_book/
 
-<!-- Add screenshots, or delete this block until you have them. -->
-<p>
-  <img src="docs/screenshots/dashboard.png" width="240" alt="Dashboard">
-  <img src="docs/screenshots/people.png" width="240" alt="People">
-  <img src="docs/screenshots/loan.png" width="240" alt="Loan details">
-</p>
-
 ## Features
 
 - **People and loans**: record money you gave or took, with a date, a due date
